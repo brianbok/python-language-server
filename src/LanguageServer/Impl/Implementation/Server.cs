@@ -130,6 +130,34 @@ namespace Microsoft.Python.LanguageServer.Implementation {
                                             _services.GetService<IIdleTimeService>());
             _services.AddService(_indexManager);
             _disposableBag.Add(_indexManager);
+            if (_clientCaps.workspace.didChangeWatchedFiles
+                .GetValueOrDefault(new WorkspaceClientCapabilities.DidChangeWatchedFilesCapabilities() {
+                    dynamicRegistration = false
+                }).dynamicRegistration) {
+                IClientApplication clientApp = Services.GetService<IClientApplication>();
+                for (int i = 0; i < 120; i++) {
+                    if (Debugger.IsAttached) {
+                        break;
+                    }
+                    await Task.Delay(1000);
+                }
+                await clientApp.NotifyAsync("client/registerCapability", new RegistrationParams() {
+                    registrations = new Registration[] {
+                        new Registration() {
+                            id = "258394",
+                            method = "workspace/didChangeWatchedFiles",
+                            registerOptions = new TextDocumentRegistrationOptions() {
+                                documentSelector = new DocumentFilter() {
+                                    language = "python",
+                                    pattern = rootDir,
+                                    scheme = "file"
+                                }
+                            }
+                        }
+                    }
+                });
+                //.DoNotWait();
+            }
 
             DisplayStartupInfo();
 
