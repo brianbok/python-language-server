@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Python.Core;
+using Microsoft.Python.Core.Services;
 using Microsoft.Python.LanguageServer.Protocol;
 using Newtonsoft.Json.Linq;
 using StreamJsonRpc;
@@ -38,10 +39,12 @@ namespace Microsoft.Python.LanguageServer.Implementation {
         }
 
         [JsonRpcMethod("initialized")]
-        public Task Initialized(JToken token, CancellationToken cancellationToken) {
-            //await _server.Initialized(ToObject<InitializedParams>(token), cancellationToken);
+        public async Task Initialized(JToken token, CancellationToken cancellationToken) {
+            using (await _prioritizer.InitializePriorityAsync(cancellationToken)) {
+                await _server.Initialized(ToObject<InitializedParams>(token), cancellationToken);
+            }
+
             _rpc.NotifyAsync("python/languageServerStarted").DoNotWait();
-            return Task.CompletedTask;
         }
 
         [JsonRpcMethod("shutdown")]

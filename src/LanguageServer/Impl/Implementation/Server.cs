@@ -43,6 +43,7 @@ namespace Microsoft.Python.LanguageServer.Implementation {
 
         private IPythonInterpreter _interpreter;
         private IRunningDocumentTable _rdt;
+        private string _rootDir;
         private ClientCapabilities _clientCaps;
         private ILogger _log;
         private IIndexManager _indexManager;
@@ -97,6 +98,41 @@ namespace Microsoft.Python.LanguageServer.Implementation {
             }
         };
 
+        internal Task Initialized(InitializedParams initializedParams, CancellationToken cancellationToken) {
+            if (_clientCaps.workspace.didChangeWatchedFiles
+                .GetValueOrDefault(new WorkspaceClientCapabilities.DidChangeWatchedFilesCapabilities() {
+                    dynamicRegistration = false
+                }).dynamicRegistration) {
+                IClientApplication clientApp = Services.GetService<IClientApplication>();
+                Task.Run(async () => {
+                    for (int i = 0; i < 120; i++) {
+                        if (Debugger.IsAttached) {
+                            break;
+                        }
+                        await Task.Delay(1000);
+                    }
+                    dynamic t = await clientApp.InvokeWithParameterObjectAsync<dynamic>("client/registerCapability", new RegistrationParams() {
+                        registrations = new Registration[] {
+                            new Registration() {
+                                id = "258394",
+                                method = "workspace/didChangeWatchedFiles",
+                                registerOptions = new DidChangeWatchedFilesRegistrationOptions() {
+                                    watchers = new FileSystemWatcher[] {
+                                        new FileSystemWatcher() {
+                                            globPattern = "${_rootDir}\\**\\*",
+                                            type = WatchKind.Create | WatchKind.Change | WatchKind.Delete
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                }).DoNotWait();
+            }
+            return Task.FromResult(new object());
+        }
+
         public async Task<InitializeResult> InitializeAsync(InitializeParams @params, CancellationToken cancellationToken) {
             _disposableBag.ThrowIfDisposed();
             _clientCaps = @params.capabilities;
@@ -115,51 +151,21 @@ namespace Microsoft.Python.LanguageServer.Implementation {
             _rdt = _services.GetService<IRunningDocumentTable>();
 
             // TODO: multi-root workspaces.
-            var rootDir = @params.rootUri != null ? PathUtils.NormalizePath(@params.rootUri.ToAbsolutePath()) : PathUtils.NormalizePath(@params.rootPath);
+            _rootDir = @params.rootUri != null ? PathUtils.NormalizePath(@params.rootUri.ToAbsolutePath()) : PathUtils.NormalizePath(@params.rootPath);
             var configuration = InterpreterConfiguration.FromDictionary(@params.initializationOptions.interpreter.properties);
             configuration.SearchPaths = @params.initializationOptions.searchPaths;
             configuration.TypeshedPath = @params.initializationOptions.typeStubSearchPaths.FirstOrDefault();
 
-            _interpreter = await PythonInterpreter.CreateAsync(configuration, rootDir, _services, cancellationToken);
+            _interpreter = await PythonInterpreter.CreateAsync(configuration, _rootDir, _services, cancellationToken);
             _services.AddService(_interpreter);
 
             var fileSystem = _services.GetService<IFileSystem>();
-            _indexManager = new IndexManager(fileSystem, _interpreter.LanguageVersion, rootDir,
+            _indexManager = new IndexManager(fileSystem, _interpreter.LanguageVersion, _rootDir,
                                             @params.initializationOptions.includeFiles,
                                             @params.initializationOptions.excludeFiles,
                                             _services.GetService<IIdleTimeService>());
             _services.AddService(_indexManager);
             _disposableBag.Add(_indexManager);
-            if (_clientCaps.workspace.didChangeWatchedFiles
-                .GetValueOrDefault(new WorkspaceClientCapabilities.DidChangeWatchedFilesCapabilities() {
-                    dynamicRegistration = false
-                }).dynamicRegistration) {
-                IClientApplication clientApp = Services.GetService<IClientApplication>();
-                Task.Run(async () => {
-                    for (int i = 0; i < 120; i++) {
-                        if (Debugger.IsAttached) {
-                            break;
-                        }
-                        await Task.Delay(1000);
-                    }
-                    await clientApp.InvokeWithParameterObjectAsync<object>("client/registerCapability", new RegistrationParams() {
-                        registrations = new Registration[] {
-                            new Registration() {
-                                id = "258394",
-                                method = "workspace/didChangeWatchedFiles",
-                                registerOptions = new TextDocumentRegistrationOptions() {
-                                    documentSelector = new DocumentFilter() {
-                                        language = "python",
-                                        pattern = $"{rootDir}\\**\\*",
-                                        scheme = "file"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }).DoNotWait();
-            }
-
             DisplayStartupInfo();
 
             // TODO: Pass different documentation sources to completion/hover/signature
