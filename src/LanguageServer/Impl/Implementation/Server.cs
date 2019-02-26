@@ -115,7 +115,7 @@ namespace Microsoft.Python.LanguageServer.Implementation {
             _rdt = _services.GetService<IRunningDocumentTable>();
 
             // TODO: multi-root workspaces.
-            var rootDir = @params.rootUri != null ? @params.rootUri.ToAbsolutePath() : PathUtils.NormalizePath(@params.rootPath);
+            var rootDir = @params.rootUri != null ? PathUtils.NormalizePath(@params.rootUri.ToAbsolutePath()) : PathUtils.NormalizePath(@params.rootPath);
             var configuration = InterpreterConfiguration.FromDictionary(@params.initializationOptions.interpreter.properties);
             configuration.SearchPaths = @params.initializationOptions.searchPaths;
             configuration.TypeshedPath = @params.initializationOptions.typeStubSearchPaths.FirstOrDefault();
@@ -135,28 +135,29 @@ namespace Microsoft.Python.LanguageServer.Implementation {
                     dynamicRegistration = false
                 }).dynamicRegistration) {
                 IClientApplication clientApp = Services.GetService<IClientApplication>();
-                for (int i = 0; i < 120; i++) {
-                    if (Debugger.IsAttached) {
-                        break;
+                Task.Run(async () => {
+                    for (int i = 0; i < 120; i++) {
+                        if (Debugger.IsAttached) {
+                            break;
+                        }
+                        await Task.Delay(1000);
                     }
-                    await Task.Delay(1000);
-                }
-                await clientApp.NotifyAsync("client/registerCapability", new RegistrationParams() {
-                    registrations = new Registration[] {
-                        new Registration() {
-                            id = "258394",
-                            method = "workspace/didChangeWatchedFiles",
-                            registerOptions = new TextDocumentRegistrationOptions() {
-                                documentSelector = new DocumentFilter() {
-                                    language = "python",
-                                    pattern = rootDir,
-                                    scheme = "file"
+                    await clientApp.InvokeWithParameterObjectAsync<object>("client/registerCapability", new RegistrationParams() {
+                        registrations = new Registration[] {
+                            new Registration() {
+                                id = "258394",
+                                method = "workspace/didChangeWatchedFiles",
+                                registerOptions = new TextDocumentRegistrationOptions() {
+                                    documentSelector = new DocumentFilter() {
+                                        language = "python",
+                                        pattern = $"{rootDir}\\**\\*",
+                                        scheme = "file"
+                                    }
                                 }
                             }
                         }
-                    }
-                });
-                //.DoNotWait();
+                    });
+                }).DoNotWait();
             }
 
             DisplayStartupInfo();
