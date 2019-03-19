@@ -18,6 +18,7 @@ using System.Collections.Generic;
 namespace Microsoft.Python.Core.IO {
     public interface IDirectoryInfo : IFileSystemInfo {
         IDirectoryInfo Parent { get; }
+        IEnumerable<IFileSystemInfo> EnumerateFileSystemInfos();
         IEnumerable<string> EnumerateFilePaths(string[] includeFiles, string[] excludeFiles);
         bool Match(string path, string[] includePatterns = default, string[] excludePatterns = default);
     }
