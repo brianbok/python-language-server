@@ -64,18 +64,18 @@ namespace Microsoft.Python.LanguageServer.Indexing {
         public int ReIndexingDelay { get; set; } = DefaultReIndexDelay;
 
         private void StartAddRootDir() {
-            foreach (var fileInfo in WorkspaceFiles()) {
-                if (ModulePath.IsPythonSourceFile(fileInfo.FullName)) {
-                    _symbolIndex.Parse(fileInfo.FullName);
+            foreach (var filePath in WorkspaceFiles()) {
+                if (ModulePath.IsPythonSourceFile(filePath)) {
+                    _symbolIndex.Parse(filePath);
                 }
             }
         }
 
-        private IEnumerable<IFileSystemInfo> WorkspaceFiles() {
+        private IEnumerable<string> WorkspaceFiles() {
             if (string.IsNullOrEmpty(_workspaceRootPath)) {
-                return Enumerable.Empty<IFileSystemInfo>();
+                return Enumerable.Empty<string>();
             }
-            return _fileSystem.GetDirectoryInfo(_workspaceRootPath).EnumerateFileSystemInfos(_includeFiles, _excludeFiles);
+            return _fileSystem.GetDirectoryInfo(_workspaceRootPath).EnumerateFilePaths(_includeFiles, _excludeFiles);
         }
 
         public void ProcessClosedFile(string path) {

@@ -39,17 +39,10 @@ namespace Microsoft.Python.Core.IO {
 
         public void Delete() => _directoryInfo.Delete();
 
-        public IEnumerable<IFileSystemInfo> EnumerateFileSystemInfos() => _directoryInfo
-                .EnumerateFileSystemInfos()
-                .Select(CreateFileSystemInfoProxy);
-
-        public IEnumerable<IFileSystemInfo> EnumerateFileSystemInfos(string[] includePatterns, string[] excludePatterns) {
+        public IEnumerable<string> EnumerateFilePaths(string[] includePatterns, string[] excludePatterns) {
             var matcher = GetMatcher(includePatterns, excludePatterns);
             PatternMatchingResult matchResult = SafeExecuteMatcher(matcher);
-            return matchResult.Files.Select((filePatternMatch) => {
-                var fileSystemInfo = _directoryInfo.GetFileSystemInfos(filePatternMatch.Stem).First();
-                return CreateFileSystemInfoProxy(fileSystemInfo);
-            });
+            return matchResult.Files.Select((fileMatch) => PathUtils.NormalizePath(fileMatch.Path));
         }
 
         public bool Match(string path, string[] includePatterns = default, string[] excludePatterns = default) {
