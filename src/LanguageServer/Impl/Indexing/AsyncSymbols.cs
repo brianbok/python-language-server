@@ -4,10 +4,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Python.Core;
+using Microsoft.Python.Core.Disposables;
 
 namespace Microsoft.Python.LanguageServer.Indexing {
-    internal interface IAsyncSymbols {
-        Task<IReadOnlyList<HierarchicalSymbol>> GetSymbols(CancellationToken ct = default);
+    internal interface IAsyncSymbols : IDisposable {
+        Task<IReadOnlyList<HierarchicalSymbol>> GetSymbolsAsync(CancellationToken ct = default);
         void Cancel();
     }
 
@@ -21,18 +22,16 @@ namespace Microsoft.Python.LanguageServer.Indexing {
         }
 
         public void Cancel() {
-            throw new NotImplementedException();
+            _cts.Cancel();
+            _tcs.TrySetCanceled();
         }
 
-        public Task<IReadOnlyList<HierarchicalSymbol>> GetSymbols(CancellationToken ct = default) {
-            var cancellableTcs = new TaskCompletionSource<IReadOnlyList<HierarchicalSymbol>>();
-            _tcs.Task.ContinueWith(t => {
-                if (t.IsCompletedSuccessfully) {
-                    cancellableTcs.TrySetResult(t.Result);
-                }
-            }).DoNotWait();
-            ct.Register(() => cancellableTcs.TrySetCanceled());
-            return cancellableTcs.Task;
+        public void Dispose() {
+            _cts.Dispose();
+        }
+
+        public Task<IReadOnlyList<HierarchicalSymbol>> GetSymbolsAsync(CancellationToken ct = default) {
+            return _tcs.Task.ContinueWith(t => t.GetAwaiter().GetResult(), ct);
         }
     }
 }

@@ -116,7 +116,7 @@ namespace Microsoft.Python.LanguageServer.Indexing {
 
         public void AddPendingDoc(IDocument doc) {
             _pendingDocs.TryAdd(doc, DateTime.Now);
-            _symbolIndex.MarkAsPending(doc.Uri.AbsolutePath);
+            _symbolIndex.MarkAsPending(doc);
         }
 
         private void OnIdle(object sender, EventArgs _) {

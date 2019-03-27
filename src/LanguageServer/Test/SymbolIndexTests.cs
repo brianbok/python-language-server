@@ -20,6 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Python.Analysis.Documents;
+using Microsoft.Python.Analysis.Modules;
 using Microsoft.Python.Core.IO;
 using Microsoft.Python.Core.Text;
 using Microsoft.Python.LanguageServer.Indexing;
@@ -161,7 +162,7 @@ namespace Microsoft.Python.LanguageServer.Tests {
             var path = TestData.GetDefaultModulePath();
 
             index.Add(path, DocumentWithAst("x = 1"));
-            index.MarkAsPending(path);
+            index.MarkAsPending(DocumentWithAst("x = 1", path));
             var cts = new CancellationTokenSource();
             var t = index.HierarchicalDocumentSymbolsAsync(path, cts.Token);
             t.IsCompleted.Should().BeFalse();
@@ -178,10 +179,9 @@ namespace Microsoft.Python.LanguageServer.Tests {
             var path = TestData.GetDefaultModulePath();
 
             index.Add(path, DocumentWithAst("x = 1"));
-            index.MarkAsPending(path);
-            var t = index.WorkspaceSymbolsAsync("", maxSymbols);
+            index.MarkAsPending(DocumentWithAst("x = 1", path));
             index.ReIndex(path, DocumentWithAst("x = 1"));
-            var symbols = await t;
+            var symbols = await index.WorkspaceSymbolsAsync("", maxSymbols);
             symbols.Should().BeEquivalentToWithStrictOrdering(new[] {
                 new FlatSymbol("x", SymbolKind.Variable, path, new SourceSpan(1, 1, 1, 2)),
             });
@@ -202,6 +202,7 @@ namespace Microsoft.Python.LanguageServer.Tests {
             IDocument doc = Substitute.For<IDocument>();
             doc.GetAstAsync().ReturnsForAnyArgs(Task.FromResult(MakeAst(testCode)));
             doc.Uri.Returns(new Uri(filePath));
+            
             return doc;
         }
 
