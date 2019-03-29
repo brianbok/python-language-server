@@ -32,8 +32,6 @@ namespace Microsoft.Python.LanguageServer.Completion {
                 index -= 1;
                 finder.Get(index, index, out expression, out statement, out scope);
             }
-
-            expression = expression ?? (statement as ExpressionStatement)?.Expression;
         }
 
         private static bool CanBackUp(PythonAst tree, Node node, Node statement, ScopeStatement scope, int column) {
