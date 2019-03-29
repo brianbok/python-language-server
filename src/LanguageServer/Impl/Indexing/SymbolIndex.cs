@@ -98,22 +98,28 @@ namespace Microsoft.Python.LanguageServer.Indexing {
             }
         }
 
-        public void ReIndex(string path, IDocument doc) {
-            
-            if (ReIndexData.TryRemove(path, out var data)) {
-                IndexAsync(doc, data.Tcs, data.Cts.Token).DoNotWait();
+        public void ProcessPending(string path, IDocument doc) {
+            if (_index.TryGetValue(path, out var symbols)) {
+                symbols.StartProcessing();
+            } else {
+                throw new ArgumentException($"{path} is not indexed");
             }
-            
         }
 
         public void MarkAsPending(IDocument doc) {
+            var tcs = new TaskCompletionSource<IReadOnlyList<HierarchicalSymbol>>();
+            var cts = new CancellationTokenSource();
             
-            var data = ReIndexData.GetOrAdd(doc.Uri.AbsolutePath, (_) => new TaskData() {
-                Tcs = new TaskCompletionSource<IReadOnlyList<HierarchicalSymbol>>(),
-                Cts = new CancellationTokenSource()
-            });
-            var newAsyncSyms = new StartedAsyncSymbols(data.Tcs, data.Cts);
+            var m = new AsyncManualResetEvent();
+            var newAsyncSyms = new PendingAsyncSymbols(tcs, cts, m);
+            PendingAsync(doc, tcs, cts.Token, m).DoNotWait();
             _index.AddOrUpdate(doc.Uri.AbsolutePath, newAsyncSyms, (_, old) => { old.Cancel(); return newAsyncSyms; });
+        }
+
+        private async Task PendingAsync(IDocument doc, TaskCompletionSource<IReadOnlyList<HierarchicalSymbol>> tcs,
+            CancellationToken ct, AsyncManualResetEvent startProcessingEvent) {
+            await startProcessingEvent.WaitAsync();
+            await IndexAsync(doc, tcs, ct);
         }
 
         private async Task IndexAsync(IDocument doc, TaskCompletionSource<IReadOnlyList<HierarchicalSymbol>> tcs,

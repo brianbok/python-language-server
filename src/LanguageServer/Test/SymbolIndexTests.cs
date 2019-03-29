@@ -180,7 +180,7 @@ namespace Microsoft.Python.LanguageServer.Tests {
 
             index.Add(path, DocumentWithAst("x = 1"));
             index.MarkAsPending(DocumentWithAst("x = 1", path));
-            index.ReIndex(path, DocumentWithAst("x = 1"));
+            index.ProcessPending(path, DocumentWithAst("x = 1"));
             var symbols = await index.WorkspaceSymbolsAsync("", maxSymbols);
             symbols.Should().BeEquivalentToWithStrictOrdering(new[] {
                 new FlatSymbol("x", SymbolKind.Variable, path, new SourceSpan(1, 1, 1, 2)),

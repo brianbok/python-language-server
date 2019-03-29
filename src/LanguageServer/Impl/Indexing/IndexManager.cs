@@ -98,8 +98,8 @@ namespace Microsoft.Python.LanguageServer.Indexing {
             _symbolIndex.Add(path, doc);
         }
 
-        public void ReIndexFile(string path, IDocument doc) {
-            _symbolIndex.ReIndex(path, doc);
+        public void ProcessPending(string path, IDocument doc) {
+            _symbolIndex.ProcessPending(path, doc);
         }
 
         public void Dispose() {
@@ -126,7 +126,7 @@ namespace Microsoft.Python.LanguageServer.Indexing {
         private void ReIndexPendingDocsAsync() {
             foreach (var (doc, lastTime) in _pendingDocs) {
                 if ((DateTime.Now - lastTime).TotalMilliseconds > ReIndexingDelay) {
-                    ReIndexFile(doc.Uri.AbsolutePath, doc);
+                    ProcessPending(doc.Uri.AbsolutePath, doc);
                     _pendingDocs.TryRemove(doc, out var _);
                 }
             }
